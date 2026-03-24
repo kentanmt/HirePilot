@@ -52,7 +52,7 @@ export default function LoginPage() {
             <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold text-xl">Copilot</span>
+            <span className="font-semibold text-xl">HirePilot</span>
           </Link>
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>
           <p className="text-zinc-400 mt-1 text-sm">Sign in to continue your job search</p>

@@ -106,7 +106,7 @@ export function Sidebar() {
           <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <span className="font-semibold text-white tracking-tight">Copilot</span>
+          <span className="font-semibold text-white tracking-tight">HirePilot</span>
           <span className="ml-auto text-[10px] font-medium px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 border border-violet-500/20">
             AI
           </span>

@@ -7,10 +7,10 @@ import { Toaster } from "@/components/ui/toaster";
 const inter = Inter({ subsets: ["latin"], variable: "--font-geist-sans" });
 
 export const metadata: Metadata = {
-  title: { default: "Copilot — AI Recruiting Copilot", template: "%s | Copilot" },
+  title: { default: "HirePilot — AI Job Search Copilot", template: "%s | HirePilot" },
   description: "Your AI-powered job search copilot. Discover jobs, tailor resumes, prep for interviews, and land your dream role.",
   keywords: ["job search", "AI recruiting", "resume tailor", "interview prep", "career"],
-  authors: [{ name: "Copilot" }],
+  authors: [{ name: "HirePilot" }],
   themeColor: "#09090b",
 };
 

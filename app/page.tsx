@@ -70,7 +70,7 @@ export default function LandingPage() {
           <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <span className="font-semibold text-lg tracking-tight">Copilot</span>
+          <span className="font-semibold text-lg tracking-tight">HirePilot</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login">
@@ -102,7 +102,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            From discovering the right roles to acing the interview — Copilot guides every step of your job search with AI that actually understands your career.
+            From discovering the right roles to acing the interview — HirePilot guides every step of your job search with AI that actually understands your career.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

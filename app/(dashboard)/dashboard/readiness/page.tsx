@@ -107,7 +107,7 @@ export default function ReadinessPage() {
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
         <BarChart3 className="w-12 h-12 text-zinc-700 mb-4" />
         <h3 className="text-lg font-semibold text-white mb-2">No readiness data yet</h3>
-        <p className="text-zinc-400 text-sm">Start using Copilot — discover jobs, apply, and practice interviews to build your score.</p>
+        <p className="text-zinc-400 text-sm">Start using HirePilot — discover jobs, apply, and practice interviews to build your score.</p>
       </div>
     );
   }
