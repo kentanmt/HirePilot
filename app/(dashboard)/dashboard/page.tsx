@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import ResumeUpload from "@/components/ResumeUpload";
+import RecommendedJobs from "@/components/RecommendedJobs";
 
 function parseJsonArray(val: any): string[] {
   if (Array.isArray(val)) return val;
@@ -121,6 +122,9 @@ export default async function DashboardPage() {
               })}
             </div>
           </div>
+
+          {/* Recommended jobs from resume */}
+          <RecommendedJobs />
 
           {/* Recent applications */}
           <div>
