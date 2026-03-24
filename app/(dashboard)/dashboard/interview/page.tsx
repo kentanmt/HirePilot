@@ -77,6 +77,8 @@ export default function InterviewPrepPage() {
           if (Array.isArray(parsed)) {
             setQuestions(parsed.map((q: Partial<Question>) => ({
               ...q,
+              type: (q.type as QuestionType) || "BEHAVIORAL",
+              question: q.question || "",
               answer: "",
               feedback: "",
               score: null,
@@ -90,7 +92,7 @@ export default function InterviewPrepPage() {
       try {
         const parsed = JSON.parse(accumulated);
         if (Array.isArray(parsed)) {
-          setQuestions(parsed.map((q: Partial<Question>) => ({ ...q, answer: "", feedback: "", score: null, tips: q.tips || [], practiced: false })));
+          setQuestions(parsed.map((q: Partial<Question>) => ({ ...q, type: (q.type as QuestionType) || "BEHAVIORAL", question: q.question || "", answer: "", feedback: "", score: null, tips: q.tips || [], practiced: false })));
         }
       } catch { /* use stream */ }
     } finally {
