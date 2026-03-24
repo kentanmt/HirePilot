@@ -7,22 +7,22 @@ const DB_PATH = process.env.RAILWAY_VOLUME_MOUNT_PATH
   ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, "db.json")
   : path.resolve(process.cwd(), "data", "db.json");
 
-type Record = { id: string; [key: string]: any };
+type DbRecord = { id: string; [key: string]: any };
 
 interface DB {
-  users: Record[];
-  userProfiles: Record[];
-  accounts: Record[];
-  sessions: Record[];
-  verificationTokens: Record[];
-  jobs: Record[];
-  applications: Record[];
-  applicationStatusHistories: Record[];
-  resumes: Record[];
-  contacts: Record[];
-  interviewSessions: Record[];
-  interviewQuestions: Record[];
-  readinessScores: Record[];
+  users: DbRecord[];
+  userProfiles: DbRecord[];
+  accounts: DbRecord[];
+  sessions: DbRecord[];
+  verificationTokens: DbRecord[];
+  jobs: DbRecord[];
+  applications: DbRecord[];
+  applicationStatusHistories: DbRecord[];
+  resumes: DbRecord[];
+  contacts: DbRecord[];
+  interviewSessions: DbRecord[];
+  interviewQuestions: DbRecord[];
+  readinessScores: DbRecord[];
 }
 
 const EMPTY_DB: DB = {
@@ -60,7 +60,7 @@ function cuid() {
   return "c" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-function matches(record: Record, where: Record): boolean {
+function matches(record: DbRecord, where: DbRecord): boolean {
   for (const [key, val] of Object.entries(where)) {
     if (val === null || val === undefined) {
       if (record[key] != null) return false;
@@ -80,7 +80,7 @@ function makeTable(tableName: keyof DB) {
   return {
     findMany({ where, include, orderBy, take }: any = {}) {
       let data = loadDB();
-      let rows = data[tableName] as Record[];
+      let rows = data[tableName] as DbRecord[];
       if (where) rows = rows.filter((r) => matches(r, where));
       if (orderBy) {
         const orderObj = Array.isArray(orderBy) ? orderBy[0] : orderBy;
@@ -102,7 +102,7 @@ function makeTable(tableName: keyof DB) {
     },
     findFirst({ where, include }: any = {}) {
       let data = loadDB();
-      let rows = data[tableName] as Record[];
+      let rows = data[tableName] as DbRecord[];
       if (where) rows = rows.filter((r) => matches(r, where));
       const row = rows[0] ?? null;
       if (row && include) return withIncludes(data, tableName, row, include);
@@ -110,7 +110,7 @@ function makeTable(tableName: keyof DB) {
     },
     findUnique({ where, include }: any = {}) {
       let data = loadDB();
-      let rows = data[tableName] as Record[];
+      let rows = data[tableName] as DbRecord[];
       if (where) rows = rows.filter((r) => matches(r, where));
       const row = rows[0] ?? null;
       if (row && include) return withIncludes(data, tableName, row, include);
@@ -118,13 +118,13 @@ function makeTable(tableName: keyof DB) {
     },
     create({ data: input, include }: any) {
       const db = loadDB();
-      const record: Record = {
+      const record: DbRecord = {
         id: cuid(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         ...input,
       };
-      (db[tableName] as Record[]).push(record);
+      (db[tableName] as DbRecord[]).push(record);
       saveDB(db);
       if (include) return withIncludes(db, tableName, record, include);
       return record;
@@ -137,13 +137,13 @@ function makeTable(tableName: keyof DB) {
         updatedAt: new Date().toISOString(),
         ...input,
       }));
-      (db[tableName] as Record[]).push(...records);
+      (db[tableName] as DbRecord[]).push(...records);
       saveDB(db);
       return { count: records.length };
     },
     update({ where, data: input }: any) {
       const db = loadDB();
-      const rows = db[tableName] as Record[];
+      const rows = db[tableName] as DbRecord[];
       const idx = rows.findIndex((r) => matches(r, where));
       if (idx === -1) throw new Error(`Record not found in ${tableName}`);
       rows[idx] = { ...rows[idx], ...input, updatedAt: new Date().toISOString() };
@@ -152,7 +152,7 @@ function makeTable(tableName: keyof DB) {
     },
     updateMany({ where, data: input }: any) {
       const db = loadDB();
-      const rows = db[tableName] as Record[];
+      const rows = db[tableName] as DbRecord[];
       let count = 0;
       for (let i = 0; i < rows.length; i++) {
         if (!where || matches(rows[i], where)) {
@@ -165,10 +165,10 @@ function makeTable(tableName: keyof DB) {
     },
     upsert({ where, create: createData, update: updateData }: any) {
       const db = loadDB();
-      const rows = db[tableName] as Record[];
+      const rows = db[tableName] as DbRecord[];
       const idx = rows.findIndex((r) => matches(r, where));
       if (idx === -1) {
-        const record: Record = {
+        const record: DbRecord = {
           id: cuid(),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -185,7 +185,7 @@ function makeTable(tableName: keyof DB) {
     },
     delete({ where }: any) {
       const db = loadDB();
-      const rows = db[tableName] as Record[];
+      const rows = db[tableName] as DbRecord[];
       const idx = rows.findIndex((r) => matches(r, where));
       if (idx === -1) throw new Error(`Record not found in ${tableName}`);
       const [deleted] = rows.splice(idx, 1);
@@ -194,7 +194,7 @@ function makeTable(tableName: keyof DB) {
     },
     deleteMany({ where }: any = {}) {
       const db = loadDB();
-      const rows = db[tableName] as Record[];
+      const rows = db[tableName] as DbRecord[];
       const before = rows.length;
       if (where) {
         db[tableName] = rows.filter((r) => !matches(r, where)) as any;
@@ -202,11 +202,11 @@ function makeTable(tableName: keyof DB) {
         db[tableName] = [] as any;
       }
       saveDB(db);
-      return { count: before - (db[tableName] as Record[]).length };
+      return { count: before - (db[tableName] as DbRecord[]).length };
     },
     count({ where }: any = {}) {
       const db = loadDB();
-      let rows = db[tableName] as Record[];
+      let rows = db[tableName] as DbRecord[];
       if (where) rows = rows.filter((r) => matches(r, where));
       return rows.length;
     },
@@ -214,7 +214,7 @@ function makeTable(tableName: keyof DB) {
 }
 
 // Simple relation resolver for common includes
-function withIncludes(db: DB, tableName: keyof DB, row: Record, include: Record): Record {
+function withIncludes(db: DB, tableName: keyof DB, row: DbRecord, include: Record<string, any>): DbRecord {
   const result = { ...row };
   for (const [key, val] of Object.entries(include)) {
     if (!val) continue;
@@ -237,10 +237,10 @@ function withIncludes(db: DB, tableName: keyof DB, row: Record, include: Record)
     if (!rel) continue;
     if (rel.many) {
       const fkVal = rel.fk === "userId" ? row.userId : row.id;
-      result[key] = (db[rel.table] as Record[]).filter((r) => r[rel.fk] === fkVal);
+      result[key] = (db[rel.table] as DbRecord[]).filter((r) => r[rel.fk] === fkVal);
     } else {
       const fkVal = key === "user" ? row.userId : key === "job" ? row.jobId : row.id;
-      result[key] = (db[rel.table] as Record[]).find((r) => r.id === fkVal) ?? null;
+      result[key] = (db[rel.table] as DbRecord[]).find((r) => r.id === fkVal) ?? null;
     }
   }
   return result;
