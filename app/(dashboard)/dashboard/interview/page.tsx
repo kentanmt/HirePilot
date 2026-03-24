@@ -5,6 +5,7 @@ import { Mic, Sparkles, Loader2, ChevronLeft, ChevronRight, Star, CheckCircle2, 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 type QuestionType = "BEHAVIORAL" | "TECHNICAL" | "ROLE_SPECIFIC" | "CULTURE_FIT";
