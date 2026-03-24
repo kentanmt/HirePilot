@@ -97,13 +97,23 @@ export default function ResumeTailorPage() {
         setStreamText(accumulated);
       }
 
+      // Strip markdown code fences Claude sometimes wraps JSON in
+      const cleanedJson = accumulated
+        .replace(/^```(?:json)?\s*/im, "")
+        .replace(/\s*```\s*$/m, "")
+        .trim();
+
       // Try to parse structured response
       try {
-        const parsed = JSON.parse(accumulated);
+        const parsed = JSON.parse(cleanedJson);
         if (parsed.tailored) setTailoredResume(parsed.tailored);
         if (parsed.changes) setChanges(parsed.changes);
+        // Auto-switch to best view
+        setView(parsed.changes?.length > 0 ? "diff" : "tailored");
       } catch {
+        // Not JSON — show raw output
         setTailoredResume(accumulated);
+        setView("tailored");
       }
     } finally {
       setStreaming(false);

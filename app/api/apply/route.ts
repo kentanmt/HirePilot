@@ -8,17 +8,57 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const applications = await prisma.application.findMany({
+  // Fetch saved jobs and existing applications
+  const savedJobs = await prisma.job.findMany({
+    where: { userId: session.user.id, isSaved: true, isArchived: false },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const existingApps = await prisma.application.findMany({
     where: { userId: session.user.id },
-    include: {
-      job: {
-        select: { id: true, title: true, company: true, location: true, remote: true, salaryMin: true, salaryMax: true, matchScore: true, url: true },
-      },
-    },
     orderBy: { updatedAt: "desc" },
   });
 
-  return NextResponse.json({ applications });
+  // Ensure every saved job has an application record
+  const appJobIds = new Set(existingApps.map((a: any) => a.jobId));
+  for (const job of savedJobs) {
+    if (!appJobIds.has(job.id)) {
+      await prisma.application.create({
+        data: { userId: session.user.id, jobId: job.id, status: "NOT_STARTED" },
+      });
+    }
+  }
+
+  // Re-fetch applications after any new ones were created
+  const applications = await prisma.application.findMany({
+    where: { userId: session.user.id },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  // Attach job data manually (db.ts include doesn't support select sub-fields)
+  const jobMap = Object.fromEntries(savedJobs.map((j: any) => [j.id, j]));
+  const result = applications
+    .map((app: any) => {
+      const job = jobMap[app.jobId];
+      if (!job) return null;
+      return {
+        ...app,
+        job: {
+          id: job.id,
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          remote: job.remote,
+          salaryMin: job.salaryMin,
+          salaryMax: job.salaryMax,
+          matchScore: job.matchScore,
+          url: job.url,
+        },
+      };
+    })
+    .filter(Boolean);
+
+  return NextResponse.json({ applications: result });
 }
 
 export async function POST(req: Request) {
@@ -62,11 +102,20 @@ Provide a live, step-by-step walkthrough as if filling out the application in re
 
 Write this as a real-time narrative, first person, present tense. Be specific to the company and role.`;
 
-  // Update application status to IN_PROGRESS
-  await prisma.application.updateMany({
+  // Ensure application record exists, then mark IN_PROGRESS
+  const existingApp = await prisma.application.findFirst({
     where: { userId: session.user.id, jobId },
-    data: { status: "IN_PROGRESS" },
   });
+  if (existingApp) {
+    await prisma.application.update({
+      where: { id: existingApp.id },
+      data: { status: "IN_PROGRESS" },
+    });
+  } else {
+    await prisma.application.create({
+      data: { userId: session.user.id, jobId, status: "IN_PROGRESS" },
+    });
+  }
 
   const stream = anthropic.messages.stream({
     model: MODEL,
@@ -75,16 +124,17 @@ Write this as a real-time narrative, first person, present tense. Be specific to
     messages: [{ role: "user", content: prompt }],
   });
 
-  // After stream, update to APPLIED (we do this async, stream continues)
+  // After stream completes, mark as APPLIED
   stream.on("finalMessage", async () => {
-    await prisma.application.updateMany({
+    const app = await prisma.application.findFirst({
       where: { userId: session.user.id, jobId },
-      data: {
-        status: "APPLIED",
-        appliedAt: new Date(),
-        aiGenerated: true,
-      },
     });
+    if (app) {
+      await prisma.application.update({
+        where: { id: app.id },
+        data: { status: "APPLIED", appliedAt: new Date().toISOString(), aiGenerated: true },
+      });
+    }
   });
 
   return createStreamingResponse(stream);
