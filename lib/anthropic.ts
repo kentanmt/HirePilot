@@ -29,7 +29,11 @@ function buildGeminiModel(system?: string, maxTokens?: number) {
   return genAI.getGenerativeModel({
     model: GEMINI_MODEL,
     systemInstruction: system || undefined,
-    generationConfig: { maxOutputTokens: maxTokens ?? 2000 },
+    generationConfig: {
+      maxOutputTokens: maxTokens ?? 2000,
+      // Disable thinking mode for gemini-2.5-flash to avoid Railway 30s timeout
+      thinkingConfig: { thinkingBudget: 0 },
+    } as any,
   });
 }
 
