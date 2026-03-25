@@ -1,17 +1,62 @@
 /**
  * AI backend — powered by Google Gemini (free tier via AI Studio).
- * Exposes the same surface as the old Anthropic client so no route files change.
- *
- * Get a free API key: https://aistudio.google.com/app/apikey
- * Set GOOGLE_AI_API_KEY in Railway Variables (and in .env locally).
+ * Auto-detects which model the API key has access to — no more hardcoding.
  */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY ?? "");
 
-// Use Gemini 2.0 Flash — fast, free tier, generous limits
-export const MODEL = "gemini-2.5-flash";
-export const FAST_MODEL = "gemini-2.5-flash";
+// Preferred models in order — first available one wins
+const PREFERRED_MODELS = [
+  "gemini-2.5-flash-preview-04-17",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash-8b",
+  "gemini-1.5-flash",
+  "gemini-pro",
+];
+
+let resolvedModel: string | null = null;
+
+async function getModel(): Promise<string> {
+  if (resolvedModel) return resolvedModel;
+
+  const key = process.env.GOOGLE_AI_API_KEY;
+  if (!key) return PREFERRED_MODELS[0];
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${key}&pageSize=100`
+    );
+    const data = await res.json();
+    const available: string[] = (data.models ?? [])
+      .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+      .map((m: any) => (m.name as string).replace("models/", ""));
+
+    for (const preferred of PREFERRED_MODELS) {
+      if (available.includes(preferred)) {
+        resolvedModel = preferred;
+        console.log("[AI] Using model:", resolvedModel);
+        return resolvedModel;
+      }
+    }
+
+    // Fallback: use whatever is available
+    if (available.length > 0) {
+      resolvedModel = available[0];
+      console.log("[AI] Fallback model:", resolvedModel);
+      return resolvedModel;
+    }
+  } catch (err) {
+    console.error("[AI] Could not fetch model list:", err);
+  }
+
+  resolvedModel = PREFERRED_MODELS[0];
+  return resolvedModel;
+}
+
+export const MODEL = "auto";
+export const FAST_MODEL = "auto";
 
 export const SYSTEM_PROMPT = `You are HirePilot, a premium AI recruiting assistant. You help job seekers navigate their entire job search journey with expert guidance, sharp analysis, and actionable insights.
 
@@ -27,9 +72,10 @@ You have deep expertise in:
 - Interview preparation and feedback
 - Job market trends and salary benchmarks`;
 
-function buildGeminiModel(modelId: string, system?: string, maxTokens?: number) {
+async function buildGeminiModel(system?: string, maxTokens?: number) {
+  const modelName = await getModel();
   return genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: modelName,
     systemInstruction: system || undefined,
     generationConfig: { maxOutputTokens: maxTokens ?? 2000 },
   });
@@ -38,30 +84,25 @@ function buildGeminiModel(modelId: string, system?: string, maxTokens?: number) 
 /** Anthropic-compatible client backed by Gemini */
 export const anthropic = {
   messages: {
-    /** Non-streaming call — used by tailor, discover, recommend, onboarding */
     async create(opts: {
       model: string;
       max_tokens?: number;
       system?: string;
       messages: Array<{ role: string; content: string }>;
     }) {
-      const model = buildGeminiModel(opts.model, opts.system, opts.max_tokens);
+      const model = await buildGeminiModel(opts.system, opts.max_tokens);
       const userMsg = opts.messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
       const result = await model.generateContent(userMsg);
       const text = result.response.text();
-      return {
-        content: [{ type: "text" as const, text }],
-      };
+      return { content: [{ type: "text" as const, text }] };
     },
 
-    /** Streaming call — used by apply, interview, network routes */
     stream(opts: {
       model: string;
       max_tokens?: number;
       system?: string;
       messages: Array<{ role: string; content: string }>;
     }) {
-      const model = buildGeminiModel(opts.model, opts.system, opts.max_tokens);
       const userMsg = opts.messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
       const finalCallbacks: Array<() => Promise<void> | void> = [];
 
@@ -71,6 +112,7 @@ export const anthropic = {
           return adapter;
         },
         async *[Symbol.asyncIterator]() {
+          const model = await buildGeminiModel(opts.system, opts.max_tokens);
           const result = await model.generateContentStream(userMsg);
           for await (const chunk of result.stream) {
             const text = chunk.text();
@@ -81,7 +123,6 @@ export const anthropic = {
               };
             }
           }
-          // Fire finalMessage callbacks after stream ends (e.g. update app status to APPLIED)
           for (const cb of finalCallbacks) await cb();
         },
       };
