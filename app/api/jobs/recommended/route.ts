@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { anthropic, FAST_MODEL } from "@/lib/anthropic";
 
 function parseArr(v: any): string[] {
   try { return Array.isArray(v) ? v : JSON.parse(v ?? "[]"); } catch { return []; }
@@ -30,7 +30,7 @@ CANDIDATE PROFILE:
 - Skills: ${skills.join(", ") || "not listed"}
 - Target companies: ${targetCompanies.join(", ") || "top tech companies"}${resumeSnippet ? `\n\nRESUME CONTENT:\n${resumeSnippet}` : ""}
 
-Generate 6 specific, realistic job listings this candidate would excel at. Use real company names. Vary company size (FAANG, growth-stage startups, mid-size tech).
+Generate 4 specific, realistic job listings this candidate would excel at. Use real company names.
 
 Return ONLY a valid JSON array — no markdown, no code blocks, no explanation:
 [{
@@ -40,23 +40,19 @@ Return ONLY a valid JSON array — no markdown, no code blocks, no explanation:
   "remote": true,
   "salaryMin": 130000,
   "salaryMax": 190000,
-  "description": "2-3 sentences describing the role and team",
-  "requirements": ["Skill 1", "Skill 2", "Skill 3", "Skill 4"],
+  "description": "2 sentences about the role",
+  "requirements": ["Skill 1", "Skill 2", "Skill 3"],
   "url": null,
   "source": "HirePilot AI",
   "matchScore": 80,
-  "matchReason": "1-2 sentences that reference specific skills or experience from the candidate's actual background"
+  "matchReason": "1 sentence referencing their specific skills or experience"
 }]
 
-Rules:
-- matchScore must be between 70–99
-- matchReason must reference specific things from the resume/skills (not generic)
-- Sort by matchScore descending
-- Return ONLY the JSON array`;
+Rules: matchScore 70-99, sort by matchScore desc, ONLY the JSON array.`;
 
   const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 3500,
+    model: FAST_MODEL,
+    max_tokens: 1500,
     messages: [{ role: "user", content: prompt }],
   });
 

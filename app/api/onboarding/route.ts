@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { anthropic, MODEL } from "@/lib/anthropic";
+import { anthropic, FAST_MODEL } from "@/lib/anthropic";
 
 // Analyze resume with Claude and return extracted profile info
 export async function POST(req: Request) {
@@ -14,8 +14,8 @@ export async function POST(req: Request) {
 
   try {
     const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
+      model: FAST_MODEL,
+      max_tokens: 800,
       messages: [{
         role: "user",
         content: `Analyze this resume and extract structured profile information.

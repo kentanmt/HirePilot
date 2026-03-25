@@ -55,34 +55,34 @@ Include all jobs with matchScore >= 30. Sort descending by matchScore. The "matc
     try {
       const response = await anthropic.messages.create({
         model: MODEL,
-        max_tokens: 4096,
+        max_tokens: 2500,
         messages: [{ role: "user", content: prompt }],
       });
       const text = response.content[0].type === "text" ? response.content[0].text : "";
-      const match = text.match(/\[[\s\S]*\]/);
+      const cleaned = text.replace(/^```(?:json)?\s*/im, "").replace(/\s*```\s*$/m, "").trim();
+      const match = cleaned.match(/\[[\s\S]*\]/);
       resultJson = match ? match[0] : "[]";
     } catch (err) {
       console.error("Claude scoring error:", err);
-      // Return raw jobs without AI scoring
       resultJson = JSON.stringify(realJobs.slice(0, 10).map((j, i) => ({
         ...j, matchScore: 70 - i * 2, matchReason: "Fetched from " + j.source,
       })));
     }
   } else {
     // No real jobs found — generate with Claude
-    const prompt = `Generate 8 realistic job listings for a ${seniority} ${role}${location ? " in " + location : ""}.
+    const prompt = `Generate 6 realistic job listings for a ${seniority} ${role}${location ? " in " + location : ""}.
 User skills: ${skills.join(", ") || "TypeScript, React, Node.js"}.
 Target companies: ${targetCompanies.join(", ") || "top startups"}.
 
 Return ONLY a valid JSON array (no markdown, no code blocks):
-[{ "title": "", "company": "", "location": "", "remote": bool, "salaryMin": 120000, "salaryMax": 180000, "description": "2-3 sentences", "requirements": ["skill1","skill2","skill3"], "url": null, "source": "AI Generated", "matchScore": 60-98, "matchReason": "why this fits" }]
+[{ "title": "", "company": "", "location": "", "remote": bool, "salaryMin": 120000, "salaryMax": 180000, "description": "2 sentences", "requirements": ["skill1","skill2","skill3"], "url": null, "source": "AI Generated", "matchScore": 60-98, "matchReason": "why this fits" }]
 
 Use realistic companies (YC-backed startups, FAANG, growth-stage). Sort by matchScore desc. Return ONLY the JSON array.`;
 
     try {
       const response = await anthropic.messages.create({
         model: MODEL,
-        max_tokens: 4096,
+        max_tokens: 2000,
         messages: [{ role: "user", content: prompt }],
       });
       const text = response.content[0].type === "text" ? response.content[0].text : "";

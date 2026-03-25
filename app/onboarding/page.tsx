@@ -70,12 +70,7 @@ export default function OnboardingPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      "text/plain": [".txt"],
-      "application/pdf": [".pdf"],
-      "application/msword": [".doc"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-    },
+    accept: { "text/plain": [".txt"] },
     maxFiles: 1,
   });
 
@@ -218,8 +213,8 @@ export default function OnboardingPage() {
                 ) : (
                   <div>
                     <Upload className="w-7 h-7 text-zinc-500 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-zinc-200">Drop resume here</p>
-                    <p className="text-xs text-zinc-500 mt-1">PDF, DOC, DOCX, TXT</p>
+                    <p className="text-sm font-medium text-zinc-200">Drop .txt resume here</p>
+                    <p className="text-xs text-zinc-500 mt-1">Plain text only — or paste below</p>
                   </div>
                 )}
               </div>

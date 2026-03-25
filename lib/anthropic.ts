@@ -4,7 +4,8 @@ export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-export const MODEL = "claude-opus-4-6";
+export const MODEL = "claude-sonnet-4-6";       // Default: fast + high quality
+export const FAST_MODEL = "claude-haiku-4-5-20251001"; // For background tasks that must be quick
 
 /**
  * Creates a streaming response from Anthropic for use in Next.js API routes.
