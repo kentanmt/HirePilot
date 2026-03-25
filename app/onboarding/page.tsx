@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import {
   Sparkles, ArrowRight, ArrowLeft, Check, Loader2,
-  MapPin, Briefcase, Upload, CheckCircle2, FileText, X,
+  MapPin, Briefcase, Upload, CheckCircle2, FileText, X, AlertCircle,
 } from "lucide-react";
+import { readResumeFile } from "@/lib/pdfReader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,8 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [fileLoading, setFileLoading] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   // Resume
   const [resumeText, setResumeText] = useState("");
@@ -50,27 +53,30 @@ export default function OnboardingPage() {
     location: "",
   });
 
-  const onDrop = useCallback((files: File[]) => {
+  const onDrop = useCallback(async (files: File[]) => {
     const file = files[0];
     if (!file) return;
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const cleaned = text
-        .split("\n")
-        .filter((line) => /^[\x20-\x7E\t]+$/.test(line) && line.trim().length > 2)
-        .join("\n")
-        .replace(/\s{3,}/g, "\n")
-        .trim();
-      setResumeText(cleaned.length > 100 ? cleaned : text.slice(0, 8000));
-    };
-    reader.readAsText(file);
+    setFileError(null);
+    setFileLoading(true);
+    try {
+      const text = await readResumeFile(file);
+      if (!text || text.trim().length < 50) {
+        setFileError("Couldn't extract text. Try a different file or paste your resume below.");
+        return;
+      }
+      setFileName(file.name);
+      setResumeText(text);
+    } finally {
+      setFileLoading(false);
+    }
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "text/plain": [".txt"] },
+    accept: {
+      "text/plain": [".txt"],
+      "application/pdf": [".pdf"],
+    },
     maxFiles: 1,
   });
 
@@ -204,7 +210,12 @@ export default function OnboardingPage() {
                 )}
               >
                 <input {...getInputProps()} />
-                {fileName ? (
+                {fileLoading ? (
+                  <div>
+                    <Loader2 className="w-7 h-7 text-violet-400 animate-spin mx-auto mb-2" />
+                    <p className="text-sm text-zinc-400">Extracting text from PDF...</p>
+                  </div>
+                ) : fileName ? (
                   <div>
                     <CheckCircle2 className="w-7 h-7 text-emerald-400 mx-auto mb-2" />
                     <p className="text-sm font-medium text-emerald-400">{fileName}</p>
@@ -213,11 +224,17 @@ export default function OnboardingPage() {
                 ) : (
                   <div>
                     <Upload className="w-7 h-7 text-zinc-500 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-zinc-200">Drop .txt resume here</p>
-                    <p className="text-xs text-zinc-500 mt-1">Plain text only — or paste below</p>
+                    <p className="text-sm font-medium text-zinc-200">Drop resume here</p>
+                    <p className="text-xs text-zinc-500 mt-1">PDF or .txt — or paste below</p>
                   </div>
                 )}
               </div>
+
+              {fileError && (
+                <p className="text-xs text-red-400 flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {fileError}
+                </p>
+              )}
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-800" /></div>

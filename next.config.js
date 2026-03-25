@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  webpack: (config) => {
+    // pdfjs-dist optionally requires 'canvas' for rendering — we only need text extraction
+    config.resolve.alias.canvas = false;
+    return config;
+  },
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"],

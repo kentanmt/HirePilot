@@ -2,8 +2,8 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "copilot",
-      "runtimeExecutable": "C:/Program Files/nodejs/npm.cmd",
+      "name": "hirepilot-dev",
+      "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
     }

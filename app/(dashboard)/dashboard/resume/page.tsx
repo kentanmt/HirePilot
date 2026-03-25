@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { FileText, Sparkles, Loader2, Download, Plus, Minus, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { useDropzone } from "react-dropzone";
+import { FileText, Sparkles, Loader2, Download, Plus, Minus, ArrowRight, CheckCircle2, AlertCircle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { readResumeFile } from "@/lib/pdfReader";
 
 interface SavedJob {
   id: string;
@@ -23,6 +25,9 @@ export default function ResumeTailorPage() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [baseResume, setBaseResume] = useState<string>("");
   const [resumeLoaded, setResumeLoaded] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [fileLoading, setFileLoading] = useState(false);
   // null = not yet run, string = result (may be empty)
   const [tailoredResume, setTailoredResume] = useState<string | null>(null);
   const [changes, setChanges] = useState<ResumeChange[]>([]);
@@ -39,6 +44,39 @@ export default function ResumeTailorPage() {
       setResumeLoaded(true);
     });
   }, []);
+
+  const onDrop = useCallback(async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+    setFileError(null);
+    setFileLoading(true);
+    try {
+      const text = await readResumeFile(file);
+      if (!text || text.trim().length < 50) {
+        setFileError("Couldn't extract text from this file. Try pasting your resume directly.");
+        return;
+      }
+      setBaseResume(text);
+      setUploadedFileName(file.name);
+      // Persist immediately
+      fetch("/api/resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: text, fileName: file.name }),
+      });
+    } finally {
+      setFileLoading(false);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      "text/plain": [".txt"],
+      "application/pdf": [".pdf"],
+    },
+    maxFiles: 1,
+  });
 
   // Persist any edits back to DB (debounced via blur)
   function handleResumeBlur() {
@@ -108,16 +146,48 @@ export default function ResumeTailorPage() {
           <p className="text-xs text-zinc-500 mt-1">AI rewrites your resume for each job</p>
         </div>
 
-        {/* Resume text input — always visible */}
-        <div className="space-y-1.5 flex-1 flex flex-col">
+        {/* Resume input */}
+        <div className="space-y-2 flex-1 flex flex-col">
           <div className="flex items-center justify-between">
             <p className="text-xs text-zinc-400 font-medium">Your resume</p>
             {baseResume.trim().length > 50 && (
               <span className="flex items-center gap-1 text-[10px] text-emerald-400">
-                <CheckCircle2 className="w-3 h-3" /> Ready
+                <CheckCircle2 className="w-3 h-3" />
+                {uploadedFileName ?? "Ready"}
               </span>
             )}
           </div>
+
+          {/* Drop zone */}
+          <div
+            {...getRootProps()}
+            className={cn(
+              "border border-dashed rounded-xl p-3 text-center cursor-pointer transition-colors",
+              isDragActive ? "border-violet-500 bg-violet-500/10" : "border-zinc-700 hover:border-zinc-600",
+              uploadedFileName && "border-emerald-600/40 bg-emerald-500/5"
+            )}
+          >
+            <input {...getInputProps()} />
+            {fileLoading ? (
+              <div className="flex items-center justify-center gap-2 py-1 text-xs text-zinc-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Extracting text...
+              </div>
+            ) : uploadedFileName ? (
+              <p className="text-[11px] text-emerald-400 truncate">{uploadedFileName} — click to replace</p>
+            ) : (
+              <div className="flex items-center justify-center gap-2 py-0.5 text-xs text-zinc-500">
+                <Upload className="w-3.5 h-3.5" />
+                Drop PDF or .txt — or paste below
+              </div>
+            )}
+          </div>
+
+          {fileError && (
+            <p className="text-[10px] text-red-400 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> {fileError}
+            </p>
+          )}
+
           <textarea
             value={baseResume}
             onChange={(e) => setBaseResume(e.target.value)}
