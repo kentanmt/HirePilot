@@ -8,8 +8,8 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!process.env.GOOGLE_AI_API_KEY) {
-    return NextResponse.json({ error: "GOOGLE_AI_API_KEY is not configured. Add it in Railway Variables." }, { status: 500 });
+  if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_AI_API_KEY) {
+    return NextResponse.json({ error: "GEMINI_API_KEY is not configured. Add it in Railway Variables." }, { status: 500 });
   }
 
   const { jobId, resumeContent } = await req.json();
