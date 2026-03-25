@@ -6,57 +6,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY ?? "");
 
-// Preferred models in order — first available one wins
-const PREFERRED_MODELS = [
-  "gemini-2.5-flash-preview-04-17",
-  "gemini-2.5-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-flash-8b",
-  "gemini-1.5-flash",
-  "gemini-pro",
-];
+const GEMINI_MODEL = "gemini-2.5-flash";
 
-let resolvedModel: string | null = null;
-
-async function getModel(): Promise<string> {
-  if (resolvedModel) return resolvedModel;
-
-  const key = process.env.GOOGLE_AI_API_KEY;
-  if (!key) return PREFERRED_MODELS[0];
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${key}&pageSize=100`
-    );
-    const data = await res.json();
-    const available: string[] = (data.models ?? [])
-      .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
-      .map((m: any) => (m.name as string).replace("models/", ""));
-
-    for (const preferred of PREFERRED_MODELS) {
-      if (available.includes(preferred)) {
-        resolvedModel = preferred;
-        console.log("[AI] Using model:", resolvedModel);
-        return resolvedModel;
-      }
-    }
-
-    // Fallback: use whatever is available
-    if (available.length > 0) {
-      resolvedModel = available[0];
-      console.log("[AI] Fallback model:", resolvedModel);
-      return resolvedModel;
-    }
-  } catch (err) {
-    console.error("[AI] Could not fetch model list:", err);
-  }
-
-  resolvedModel = PREFERRED_MODELS[0];
-  return resolvedModel;
-}
-
-export const MODEL = "auto";
-export const FAST_MODEL = "auto";
+export const MODEL = GEMINI_MODEL;
+export const FAST_MODEL = GEMINI_MODEL;
 
 export const SYSTEM_PROMPT = `You are HirePilot, a premium AI recruiting assistant. You help job seekers navigate their entire job search journey with expert guidance, sharp analysis, and actionable insights.
 
@@ -72,10 +25,9 @@ You have deep expertise in:
 - Interview preparation and feedback
 - Job market trends and salary benchmarks`;
 
-async function buildGeminiModel(system?: string, maxTokens?: number) {
-  const modelName = await getModel();
+function buildGeminiModel(system?: string, maxTokens?: number) {
   return genAI.getGenerativeModel({
-    model: modelName,
+    model: GEMINI_MODEL,
     systemInstruction: system || undefined,
     generationConfig: { maxOutputTokens: maxTokens ?? 2000 },
   });
@@ -90,7 +42,7 @@ export const anthropic = {
       system?: string;
       messages: Array<{ role: string; content: string }>;
     }) {
-      const model = await buildGeminiModel(opts.system, opts.max_tokens);
+      const model = buildGeminiModel(opts.system, opts.max_tokens);
       const userMsg = opts.messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
       const result = await model.generateContent(userMsg);
       const text = result.response.text();
@@ -112,7 +64,7 @@ export const anthropic = {
           return adapter;
         },
         async *[Symbol.asyncIterator]() {
-          const model = await buildGeminiModel(opts.system, opts.max_tokens);
+          const model = buildGeminiModel(opts.system, opts.max_tokens);
           const result = await model.generateContentStream(userMsg);
           for await (const chunk of result.stream) {
             const text = chunk.text();
