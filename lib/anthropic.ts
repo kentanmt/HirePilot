@@ -10,8 +10,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY ?? "");
 
 // Use Gemini 2.0 Flash — fast, free tier, generous limits
-export const MODEL = "gemini-2.0-flash";
-export const FAST_MODEL = "gemini-2.0-flash";
+export const MODEL = "gemini-2.5-flash";
+export const FAST_MODEL = "gemini-2.5-flash";
 
 export const SYSTEM_PROMPT = `You are HirePilot, a premium AI recruiting assistant. You help job seekers navigate their entire job search journey with expert guidance, sharp analysis, and actionable insights.
 
@@ -29,7 +29,7 @@ You have deep expertise in:
 
 function buildGeminiModel(modelId: string, system?: string, maxTokens?: number) {
   return genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     systemInstruction: system || undefined,
     generationConfig: { maxOutputTokens: maxTokens ?? 2000 },
   });
