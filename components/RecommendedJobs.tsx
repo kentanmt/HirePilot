@@ -47,6 +47,7 @@ export default function RecommendedJobs() {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [savingId, setSavingId] = useState<string | null>(null);
   const [noProfile, setNoProfile] = useState(false);
+  const [noCredits, setNoCredits] = useState(false);
 
   async function load(forceRefresh = false) {
     if (forceRefresh) {
@@ -58,6 +59,7 @@ export default function RecommendedJobs() {
       const res = await fetch("/api/jobs/recommended");
       const data = await res.json();
       if (data.reason === "no_profile") { setNoProfile(true); return; }
+      if (data.reason === "no_credits") { setNoCredits(true); return; }
       setJobs(data.jobs || []);
       const alreadySaved = new Set<string>(
         (data.jobs || []).filter((j: RecommendedJob) => j.isSaved).map((j: RecommendedJob) => j.id)
@@ -86,8 +88,13 @@ export default function RecommendedJobs() {
     }
   }
 
-  // Don't render section at all if no profile/resume exists
   if (!loading && noProfile) return null;
+  if (!loading && noCredits) return (
+    <div className="mb-8 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-center">
+      <p className="text-sm text-amber-400 font-medium">AI credits exhausted</p>
+      <p className="text-xs text-zinc-500 mt-1">Top up at console.anthropic.com/settings/billing to enable recommendations.</p>
+    </div>
+  );
 
   return (
     <div className="mb-8">

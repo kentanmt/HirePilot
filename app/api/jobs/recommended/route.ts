@@ -120,9 +120,11 @@ export async function GET() {
     }
 
     return NextResponse.json({ jobs: saved, fresh: true });
-  } catch (err) {
-    console.error("Recommendations error:", err);
-    return NextResponse.json({ jobs: [], reason: "error" });
+  } catch (err: any) {
+    console.error("Recommendations error:", err?.message ?? err);
+    const msg: string = err?.message ?? "";
+    const reason = msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED") ? "no_credits" : "error";
+    return NextResponse.json({ jobs: [], reason });
   }
 }
 

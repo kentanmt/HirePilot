@@ -8,8 +8,8 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY is not configured" }, { status: 500 });
+  if (!process.env.GOOGLE_AI_API_KEY) {
+    return NextResponse.json({ error: "GOOGLE_AI_API_KEY is not configured. Add it in Railway Variables." }, { status: 500 });
   }
 
   const { jobId, resumeContent } = await req.json();
@@ -89,9 +89,12 @@ Return a JSON object — no markdown fences, no explanation, ONLY the JSON:
     }
   } catch (err: any) {
     console.error("Tailor Claude error:", err?.message ?? err);
-    return NextResponse.json(
-      { error: err?.message ?? "Failed to tailor resume. Check your ANTHROPIC_API_KEY." },
-      { status: 500 }
-    );
+    const msg: string = err?.message ?? "";
+    const friendly = msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")
+      ? "Gemini API quota exceeded. Wait a minute and try again (free tier: 15 req/min)."
+      : msg.includes("API key") || msg.includes("API_KEY")
+      ? "Invalid API key. Check GOOGLE_AI_API_KEY in Railway Variables."
+      : msg || "Failed to tailor resume. Please try again.";
+    return NextResponse.json({ error: friendly }, { status: 500 });
   }
 }

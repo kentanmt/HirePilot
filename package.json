@@ -16,6 +16,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.3",
     "@auth/prisma-adapter": "^2.4.2",
+    "@google/generative-ai": "^0.24.1",
     "@libsql/client": "^0.17.2",
     "@prisma/adapter-libsql": "^7.5.0",
     "@prisma/client": "^6.19.2",

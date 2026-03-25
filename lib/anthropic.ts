@@ -1,93 +1,18 @@
-import Anthropic from "@anthropic-ai/sdk";
-
-export const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-export const MODEL = "claude-sonnet-4-6";       // Default: fast + high quality
-export const FAST_MODEL = "claude-haiku-4-5-20251001"; // For background tasks that must be quick
-
 /**
- * Creates a streaming response from Anthropic for use in Next.js API routes.
+ * AI backend — powered by Google Gemini (free tier via AI Studio).
+ * Exposes the same surface as the old Anthropic client so no route files change.
+ *
+ * Get a free API key: https://aistudio.google.com/app/apikey
+ * Set GOOGLE_AI_API_KEY in Railway Variables (and in .env locally).
  */
-export function createStreamingResponse(
-  stream: AsyncIterable<Anthropic.MessageStreamEvent>
-): Response {
-  const readableStream = new ReadableStream({
-    async start(controller) {
-      const encoder = new TextEncoder();
-      try {
-        for await (const event of stream) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
-        }
-      } catch (err) {
-        controller.error(err);
-      } finally {
-        controller.close();
-      }
-    },
-  });
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-  return new Response(readableStream, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Transfer-Encoding": "chunked",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
-}
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY ?? "");
 
-/**
- * Creates a JSON-streaming response that emits newline-delimited JSON objects.
- * Useful for structured data (job listings, contacts, etc.)
- */
-export function createJsonStreamingResponse(
-  stream: AsyncIterable<Anthropic.MessageStreamEvent>
-): Response {
-  const readableStream = new ReadableStream({
-    async start(controller) {
-      const encoder = new TextEncoder();
-      let buffer = "";
-      try {
-        for await (const event of stream) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            buffer += event.delta.text;
-            // Try to flush complete JSON objects
-            const lines = buffer.split("\n");
-            buffer = lines.pop() ?? "";
-            for (const line of lines) {
-              if (line.trim()) {
-                controller.enqueue(encoder.encode(line + "\n"));
-              }
-            }
-          }
-        }
-        if (buffer.trim()) {
-          controller.enqueue(encoder.encode(buffer + "\n"));
-        }
-      } catch (err) {
-        controller.error(err);
-      } finally {
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(readableStream, {
-    headers: {
-      "Content-Type": "application/x-ndjson",
-      "Transfer-Encoding": "chunked",
-    },
-  });
-}
+// Use Gemini 1.5 Flash — fast, free tier, generous limits
+export const MODEL = "gemini-1.5-flash";
+// Same model — flash is already the fastest option
+export const FAST_MODEL = "gemini-1.5-flash";
 
 export const SYSTEM_PROMPT = `You are HirePilot, a premium AI recruiting assistant. You help job seekers navigate their entire job search journey with expert guidance, sharp analysis, and actionable insights.
 
@@ -102,3 +27,130 @@ You have deep expertise in:
 - Networking and outreach strategy
 - Interview preparation and feedback
 - Job market trends and salary benchmarks`;
+
+function buildGeminiModel(modelId: string, system?: string, maxTokens?: number) {
+  return genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    systemInstruction: system || undefined,
+    generationConfig: { maxOutputTokens: maxTokens ?? 2000 },
+  });
+}
+
+/** Anthropic-compatible client backed by Gemini */
+export const anthropic = {
+  messages: {
+    /** Non-streaming call — used by tailor, discover, recommend, onboarding */
+    async create(opts: {
+      model: string;
+      max_tokens?: number;
+      system?: string;
+      messages: Array<{ role: string; content: string }>;
+    }) {
+      const model = buildGeminiModel(opts.model, opts.system, opts.max_tokens);
+      const userMsg = opts.messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
+      const result = await model.generateContent(userMsg);
+      const text = result.response.text();
+      return {
+        content: [{ type: "text" as const, text }],
+      };
+    },
+
+    /** Streaming call — used by apply, interview, network routes */
+    stream(opts: {
+      model: string;
+      max_tokens?: number;
+      system?: string;
+      messages: Array<{ role: string; content: string }>;
+    }) {
+      const model = buildGeminiModel(opts.model, opts.system, opts.max_tokens);
+      const userMsg = opts.messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
+      const finalCallbacks: Array<() => Promise<void> | void> = [];
+
+      const adapter = {
+        on(event: string, cb: () => Promise<void> | void) {
+          if (event === "finalMessage") finalCallbacks.push(cb);
+          return adapter;
+        },
+        async *[Symbol.asyncIterator]() {
+          const result = await model.generateContentStream(userMsg);
+          for await (const chunk of result.stream) {
+            const text = chunk.text();
+            if (text) {
+              yield {
+                type: "content_block_delta" as const,
+                delta: { type: "text_delta" as const, text },
+              };
+            }
+          }
+          // Fire finalMessage callbacks after stream ends (e.g. update app status to APPLIED)
+          for (const cb of finalCallbacks) await cb();
+        },
+      };
+
+      return adapter;
+    },
+  },
+};
+
+/** Converts an async-iterable stream into a streaming HTTP Response */
+export function createStreamingResponse(stream: AsyncIterable<any>): Response {
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const event of stream) {
+          if (
+            event.type === "content_block_delta" &&
+            event.delta?.type === "text_delta" &&
+            event.delta.text
+          ) {
+            controller.enqueue(encoder.encode(event.delta.text));
+          }
+        }
+      } catch (err) {
+        controller.error(err);
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+/** JSON-streaming response (ndjson) — kept for compatibility */
+export function createJsonStreamingResponse(stream: AsyncIterable<any>): Response {
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    async start(controller) {
+      let buffer = "";
+      try {
+        for await (const event of stream) {
+          if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+            buffer += event.delta.text;
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+            for (const line of lines) {
+              if (line.trim()) controller.enqueue(encoder.encode(line + "\n"));
+            }
+          }
+        }
+        if (buffer.trim()) controller.enqueue(encoder.encode(buffer + "\n"));
+      } catch (err) {
+        controller.error(err);
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: { "Content-Type": "application/x-ndjson", "Transfer-Encoding": "chunked" },
+  });
+}
